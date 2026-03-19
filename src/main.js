@@ -2,5 +2,8 @@ import './assets/main.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
+import PNP from './pnp-lib'
 
-createApp(App).mount('#app')
+const app = createApp(App)
+app.use(PNP)
+app.mount('#app')
