@@ -98,6 +98,7 @@ class PNPDragManager {
         }
 
         this.isDragging.value = true;
+        document.body.style.userSelect = 'none';
         this.onStartEventBus.emit(this.activeDrag.ctx);
 
         if (options.onDragStart) {
@@ -152,6 +153,7 @@ class PNPDragManager {
 
         // Reset state
         this.isDragging.value = false;
+        document.body.style.userSelect = '';
         this.activeDrag.currentDropZone = null;
         this.hoveredZoneId.value = null;
     }
