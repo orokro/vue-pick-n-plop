@@ -38,10 +38,10 @@ class PNPDragManager {
             ...options,
         };
 
-        // DragHelper instantiated based on useTouch option.
-        this.dragHelper = new DragHelper(
-            this._config.useTouch ? { usePointerEvents: true } : {}
-        );
+        // Always use pointer events — they handle mouse, touch, and stylus uniformly.
+        // Pointer events are a strict superset of mouse events, so this works for
+        // all users regardless of whether they enable useTouch.
+        this.dragHelper = new DragHelper({ usePointerEvents: true });
 
         // Refs for cancel listeners — attached on drag start, removed on drag end.
         this._cancelKeyHandler = null;
@@ -106,16 +106,12 @@ class PNPDragManager {
 
     /**
      * Merges partial options into the manager's runtime config.
-     * If useTouch changes, the DragHelper is recreated with the appropriate event mode.
      * Takes effect on the next drag — does not affect any drag currently in progress.
      *
      * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean, useTouch: boolean }>} opts
      */
     setOptions(opts) {
         if (!opts) return;
-        if ('useTouch' in opts && opts.useTouch !== this._config.useTouch) {
-            this.dragHelper = new DragHelper(opts.useTouch ? { usePointerEvents: true } : {});
-        }
         Object.assign(this._config, opts);
     }
 
@@ -129,6 +125,10 @@ class PNPDragManager {
             console.warn('[PNP] No <PNPDragLayer /> mounted. Dragging disabled.');
             return;
         }
+
+        // Re-entrancy guard: prevents a second event (e.g. synthesised mousedown
+        // after a touch pointerdown) from restarting a drag that just began.
+        if (this.isDragging.value) return;
 
         const keys = typeof options.keys === 'string' ? options.keys.split('|') : (options.keys || []);
         const rect = el.getBoundingClientRect();

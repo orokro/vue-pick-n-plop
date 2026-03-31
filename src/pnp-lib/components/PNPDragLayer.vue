@@ -30,7 +30,7 @@ const layerStyle = computed(() => ({
 
 const dragItemStyle = computed(() => {
     if (!manager.isDragging.value || !activeDrag.initialRect) return {};
-    
+
     const x = activeDrag.initialRect.left + activeDrag.delta.x;
     const y = activeDrag.initialRect.top + activeDrag.delta.y;
 
@@ -46,18 +46,25 @@ const dragItemStyle = computed(() => {
     };
 });
 
-// Clone handling
-const cloneEl = ref(null);
+// Raw clone content is injected into this inner container, which Vue never
+// manages the children of — keeping it separate from the Vue-rendered badge span.
+// This prevents innerHTML = '' from destroying Vue's internal v-if anchor nodes.
+const cloneContentEl = ref(null);
+
 watch(() => manager.isDragging.value, (isDragging) => {
     if (isDragging && activeDrag.options.dragItem === 'clone' && activeDrag.el) {
         nextTick(() => {
-            if (cloneEl.value) {
-                cloneEl.value.innerHTML = '';
+            if (cloneContentEl.value) {
+                cloneContentEl.value.innerHTML = '';
                 const clone = activeDrag.el.cloneNode(true);
+                // _initSort hides the original element via display:none. cloneNode(true)
+                // copies inline styles, so we must clear display on the copy or the
+                // ghost will be invisible during sort drags.
+                clone.style.display = '';
                 clone.style.width = '100%';
                 clone.style.height = '100%';
                 clone.style.margin = '0';
-                cloneEl.value.appendChild(clone);
+                cloneContentEl.value.appendChild(clone);
             }
         });
     }
@@ -72,14 +79,20 @@ const isComponentMode = computed(() => {
 
 <template>
     <div v-show="manager.isDragging.value" :style="layerStyle" class="pnp-drag-layer">
-        
+
         <!-- Mode: self (Container for the original element to be appended to) -->
         <div v-show="activeDrag.options.dragItem === 'self'" :style="dragItemStyle" class="pnp-drag-item-self-container">
         </div>
 
         <!-- Mode: clone -->
-        <div v-if="activeDrag.options.dragItem === 'clone'" :style="dragItemStyle" ref="cloneEl" class="pnp-drag-item-clone">
-            <!-- +N badge: shown when showGroupCount is on and more than one item is selected -->
+        <div v-if="activeDrag.options.dragItem === 'clone'" :style="dragItemStyle" class="pnp-drag-item-clone">
+            <!--
+                Raw content container — populated by the watch above via direct DOM
+                manipulation. Must be a leaf node from Vue's perspective so that
+                innerHTML operations don't destroy Vue-managed sibling nodes.
+            -->
+            <div ref="cloneContentEl" class="pnp-clone-content"></div>
+            <!-- +N badge: Vue-managed, kept as a sibling so it's never cleared -->
             <span
                 v-if="activeDrag.options.showGroupCount && activeDrag.groupCtx && activeDrag.groupCtx.length > 1"
                 class="pnp-group-count-badge"
@@ -99,8 +112,8 @@ const isComponentMode = computed(() => {
         </div>
 
         <!-- Mode: string (but not self/clone) -->
-        <div v-else-if="typeof activeDrag.options.dragItem === 'string' && activeDrag.options.dragItem !== 'self' && activeDrag.options.dragItem !== 'clone'" 
-             :style="dragItemStyle" 
+        <div v-else-if="typeof activeDrag.options.dragItem === 'string' && activeDrag.options.dragItem !== 'self' && activeDrag.options.dragItem !== 'clone'"
+             :style="dragItemStyle"
              class="pnp-drag-item-default">
              {{ activeDrag.options.dragItem }}
         </div>
@@ -111,6 +124,15 @@ const isComponentMode = computed(() => {
 <style scoped>
 .pnp-drag-layer {
     user-select: none;
+}
+
+.pnp-drag-item-clone {
+    position: relative;
+}
+
+.pnp-clone-content {
+    width: 100%;
+    height: 100%;
 }
 
 .pnp-group-count-badge {

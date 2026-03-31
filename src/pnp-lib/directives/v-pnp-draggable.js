@@ -42,28 +42,30 @@ export default {
 		};
 
 		/**
-		 * Mouse drag initiator — active when useTouch is false (default).
-		 * Skipped when useTouch is true since pointerdown handles everything in that mode.
+		 * Mouse drag initiator — always active, handles left-button mouse input.
+		 * GDragHelper uses pointer events internally so tracking works regardless.
 		 *
 		 * @param {MouseEvent} event
 		 */
 		const onMouseDown = (event) => {
-			if (manager._config.useTouch) return; // pointerdown handles all input in touch mode
 			if (event.button !== 0) return;
 			tryStartDrag(event);
 		};
 
 		/**
-		 * Touch/pointer drag initiator — only active when useTouch is true.
-		 * Fires for ALL pointer types in that mode (mouse + touch + stylus) so the
-		 * app gets a single unified code path regardless of input device.
+		 * Touch/stylus drag initiator — only fires for actual touch or pen input
+		 * (pointerType !== 'mouse') when useTouch is enabled.
+		 *
+		 * Calling preventDefault() here suppresses the browser's synthesised mousedown
+		 * that would otherwise fire ~300ms later and erroneously re-trigger the drag.
 		 *
 		 * @param {PointerEvent} event
 		 */
 		const onPointerDown = (event) => {
 			if (!manager._config.useTouch) return;
-			// Ignore non-primary pointer buttons (right-click, etc.).
+			if (event.pointerType === 'mouse') return; // handled by onMouseDown
 			if (event.button !== 0) return;
+			event.preventDefault(); // suppress synthetic mousedown / click
 			tryStartDrag(event);
 		};
 
