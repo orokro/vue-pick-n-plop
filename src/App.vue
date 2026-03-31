@@ -13,6 +13,8 @@ import DragHandleDemo from './components/demos/DragHandleDemo.vue';
 import CancelModifiersDemo from './components/demos/CancelModifiersDemo.vue';
 import MultiSelectDemo from './components/demos/MultiSelectDemo.vue';
 import SortTouchDemo from './components/demos/SortTouchDemo.vue';
+import CookieMonsterDemo from './components/demos/CookieMonsterDemo.vue';
+import FileBrowserDemo from './components/demos/FileBrowserDemo.vue';
 
 /**
  * @typedef {{ id: string, label: string, icon: string, description: string, component: object }} DemoEntry
@@ -54,6 +56,20 @@ const demos = [
 		icon: '↕️',
 		description: 'Reorder lists with placeholder, no oscillation, touch support',
 		component: SortTouchDemo,
+	},
+	{
+		id: 'cookie-monster',
+		label: 'Drag Modes',
+		icon: '🍪',
+		description: 'self, clone, custom component, and text mode side by side',
+		component: CookieMonsterDemo,
+	},
+	{
+		id: 'file-browser',
+		label: 'File Browser',
+		icon: '📁',
+		description: 'Multi-select grid with world-space pile animation custom ghost',
+		component: FileBrowserDemo,
 	},
 ];
 

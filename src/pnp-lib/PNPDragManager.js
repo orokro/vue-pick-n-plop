@@ -38,16 +38,16 @@ class PNPDragManager {
             ...options,
         };
 
-        // Always use pointer events — they handle mouse, touch, and stylus uniformly.
+        // Always use pointer events -- they handle mouse, touch, and stylus uniformly.
         // Pointer events are a strict superset of mouse events, so this works for
         // all users regardless of whether they enable useTouch.
         this.dragHelper = new DragHelper({ usePointerEvents: true });
 
-        // Refs for cancel listeners — attached on drag start, removed on drag end.
+        // Refs for cancel listeners -- attached on drag start, removed on drag end.
         this._cancelKeyHandler = null;
         this._rightClickHandler = null;
 
-        // Sort state — managed across the drag lifecycle.
+        // Sort state -- managed across the drag lifecycle.
         this._sortRafPending = false;
         this._sortOriginalDisplay = '';
 
@@ -106,7 +106,7 @@ class PNPDragManager {
 
     /**
      * Merges partial options into the manager's runtime config.
-     * Takes effect on the next drag — does not affect any drag currently in progress.
+     * Takes effect on the next drag -- does not affect any drag currently in progress.
      *
      * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean, useTouch: boolean }>} opts
      */
@@ -219,7 +219,7 @@ class PNPDragManager {
     }
 
     _onDragEnd(dx, dy) {
-        // Remove cancel listeners first — they're only valid during a drag.
+        // Remove cancel listeners first -- they're only valid during a drag.
         this._removeCancelListeners();
 
         const success = !!this.activeDrag.currentDropZone;
@@ -307,6 +307,13 @@ class PNPDragManager {
             }
             placeholder.style.background = '#4a90d9';
             placeholder.style.borderRadius = '2px';
+        } else if (styleMode === 'dashed') {
+            // Outlined ghost: same size as dragged element but only a dashed border, no fill.
+            placeholder.style.width = rect.width + 'px';
+            placeholder.style.height = rect.height + 'px';
+            placeholder.style.border = '2px dashed #4a90d9';
+            placeholder.style.borderRadius = '6px';
+            placeholder.style.background = 'rgba(74, 144, 217, 0.06)';
         } else {
             // 'space' (default): invisible ghost sized to the dragged element
             placeholder.style.width = rect.width + 'px';
@@ -489,7 +496,7 @@ class PNPDragManager {
                     e.preventDefault();
                     e.stopPropagation();
                     this.cancelDrag();
-                    // contextmenu fires after mouseup — add a one-shot suppressor that
+                    // contextmenu fires after mouseup -- add a one-shot suppressor that
                     // outlives the cancelDrag() → _removeCancelListeners() cleanup.
                     window.addEventListener('contextmenu', (ce) => {
                         ce.preventDefault();
@@ -584,4 +591,5 @@ class PNPDragManager {
     offDropped(fn) { this.onDroppedEventBus.off(fn); }
 }
 
+export { PNPDragManager };
 export const manager = new PNPDragManager();

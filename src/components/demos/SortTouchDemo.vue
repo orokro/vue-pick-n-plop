@@ -37,8 +37,8 @@ const libraryTracks = ref([
 	{ id: 10, title: 'Golden Hours',           artist: 'Brian Eno',         duration: '3:58' },
 ]);
 
-/** @type {import('vue').Ref<'space'|'line'>} */
-const placeholderStyle = ref('space');
+/** @type {import('vue').Ref<'space'|'line'|'dashed'>} */
+const placeholderStyle = ref('dashed');
 
 /** @type {import('vue').Ref<boolean>} */
 const useTouch = ref(false);
@@ -149,6 +149,10 @@ const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', m
 						:class="['btn-opt', { active: placeholderStyle === 'line' }]"
 						@click="placeholderStyle = 'line'"
 					>Line</button>
+					<button
+						:class="['btn-opt', { active: placeholderStyle === 'dashed' }]"
+						@click="placeholderStyle = 'dashed'"
+					>Dashed</button>
 				</div>
 			</div>
 			<div class="config-group">

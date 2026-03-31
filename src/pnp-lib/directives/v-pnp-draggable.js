@@ -1,4 +1,17 @@
-import { manager } from '../PNPDragManager';
+import { manager as defaultManager } from '../PNPDragManager';
+
+/**
+ * Resolves the active PNPDragManager from the component's app context.
+ * Falls back to the module singleton when the plugin wasn't installed or the
+ * vnode context is unavailable.
+ *
+ * @param {import('vue').VNode} vnode
+ * @returns {import('../PNPDragManager').PNPDragManager}
+ */
+const getManager = (vnode) => {
+	const provides = vnode?.ctx?.appContext?.provides;
+	return (provides && provides['pnp-manager']) ?? defaultManager;
+};
 
 export default {
 
@@ -18,9 +31,12 @@ export default {
 	/**
 	 * @param {HTMLElement} el
 	 * @param {import('vue').DirectiveBinding} binding
+	 * @param {import('vue').VNode} vnode
 	 */
-	mounted(el, binding) {
-		// Options already stored in beforeMount; update in case binding changed between hooks.
+	mounted(el, binding, vnode) {
+		const manager = getManager(vnode);
+		// Store so updated/unmounted can use the same instance without re-resolving.
+		el._pnpManager = manager;
 		el._pnpOptions = binding.value || {};
 
 		/**
@@ -43,7 +59,6 @@ export default {
 
 		/**
 		 * Mouse drag initiator — always active, handles left-button mouse input.
-		 * GDragHelper uses pointer events internally so tracking works regardless.
 		 *
 		 * @param {MouseEvent} event
 		 */
@@ -100,5 +115,6 @@ export default {
 			delete el._pnpPointerDown;
 		}
 		delete el._pnpOptions;
+		delete el._pnpManager;
 	},
 };
