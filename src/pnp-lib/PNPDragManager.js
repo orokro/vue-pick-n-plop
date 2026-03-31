@@ -35,6 +35,7 @@ class PNPDragManager {
             cancelKey: 'Escape',
             rightClickCancel: true,
             useTouch: false,
+            dragThreshold: 5,
             ...options,
         };
 
@@ -108,7 +109,7 @@ class PNPDragManager {
      * Merges partial options into the manager's runtime config.
      * Takes effect on the next drag -- does not affect any drag currently in progress.
      *
-     * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean, useTouch: boolean }>} opts
+     * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean, useTouch: boolean, dragThreshold: number }>} opts
      */
     setOptions(opts) {
         if (!opts) return;

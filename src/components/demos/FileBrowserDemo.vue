@@ -139,8 +139,12 @@ const handleClick = (file, event) => {
 		return;
 	}
 
-	// Plain click: select only this file
-	sel.value = new Set([file.id]);
+	// Plain click: if the file is already in the selection, preserve the selection
+	// so a drag gesture can carry the entire group. If it's not selected, replace
+	// the selection with just this file.
+	if (!sel.value.has(file.id)) {
+		sel.value = new Set([file.id]);
+	}
 	last.value = file.id;
 };
 
