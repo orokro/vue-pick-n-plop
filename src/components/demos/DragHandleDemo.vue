@@ -188,7 +188,7 @@ const onRichCardBodyClick = (id, event) => {
 										<span class="card-sub">{{ task.sub }}</span>
 									</div>
 								</div>
-								<button class="card-action" @click.stop="() => {}">
+								<button class="card-action" @click.stop @mousedown.stop>
 									View details
 								</button>
 							</div>
@@ -267,7 +267,7 @@ const onRichCardBodyClick = (id, event) => {
 										<span class="card-sub">{{ task.sub }}</span>
 									</div>
 								</div>
-								<button class="card-action" @click.stop="() => {}">View details</button>
+								<button class="card-action" @click.stop @mousedown.stop>View details</button>
 							</div>
 							<Transition name="nudge-tip">
 								<div v-if="nudgeId === task.id" class="nudge-tip">👈 Use the grip</div>
@@ -336,7 +336,7 @@ const onRichCardBodyClick = (id, event) => {
 										<span class="card-sub">{{ task.sub }}</span>
 									</div>
 								</div>
-								<button class="card-action" @click.stop="() => {}">View details</button>
+								<button class="card-action" @click.stop @mousedown.stop>View details</button>
 							</div>
 							<Transition name="nudge-tip">
 								<div v-if="nudgeId === task.id" class="nudge-tip">👈 Use the grip</div>

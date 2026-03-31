@@ -17,12 +17,29 @@ class EventBus {
 }
 
 class PNPDragManager {
-    constructor() {
+
+    /**
+     * @param {Object} [options]
+     * @param {string|null} [options.cancelKey='Escape'] - Key that cancels an active drag. null to disable.
+     * @param {boolean} [options.rightClickCancel=true] - Right-click during drag cancels it.
+     */
+    constructor(options = {}) {
         this.isDragging = ref(false);
         this.dragZones = shallowRef([]);
         this.dragHelper = new DragHelper();
         this.onStartEventBus = new EventBus();
         this.onDroppedEventBus = new EventBus();
+
+        // Runtime configuration with sensible defaults.
+        this._config = {
+            cancelKey: 'Escape',
+            rightClickCancel: true,
+            ...options,
+        };
+
+        // Refs for cancel listeners — attached on drag start, removed on drag end.
+        this._cancelKeyHandler = null;
+        this._rightClickHandler = null;
 
         // Current drag state
         this.activeDrag = reactive({
@@ -38,12 +55,19 @@ class PNPDragManager {
             initialRect: null,
             currentDropZone: null,
             validDropZones: [],
+            /** Modifier key state captured at drag start; cleared on window blur. */
+            modifiers: {},
         });
 
         // Counter rather than boolean so multiple PNPDragLayer instances
         // can mount/unmount independently without clobbering each other.
         this.hasDragLayer = ref(0);
         this.hoveredZoneId = ref(null);
+
+        // Clear modifier state if the window loses focus mid-drag to prevent
+        // desync from missed keyup events (e.g. alt-tab while holding Alt).
+        this._blurHandler = () => { this.activeDrag.modifiers = {}; };
+        window.addEventListener('blur', this._blurHandler);
     }
 
     registerDropLayer() {
@@ -62,6 +86,22 @@ class PNPDragManager {
         this.dragZones.value = this.dragZones.value.filter(z => z.id !== id);
     }
 
+    /**
+     * Merges partial options into the manager's runtime config.
+     * Takes effect on the next drag — does not affect any drag currently in progress.
+     *
+     * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean }>} opts
+     */
+    setOptions(opts) {
+        if (!opts) return;
+        Object.assign(this._config, opts);
+    }
+
+    /**
+     * @param {HTMLElement} el
+     * @param {Object} options
+     * @param {MouseEvent} [event]
+     */
     startDrag(el, options, event) {
         if (this.hasDragLayer.value < 1) {
             console.warn('[PNP] No <PNPDragLayer /> mounted. Dragging disabled.');
@@ -87,6 +127,14 @@ class PNPDragManager {
             validDropZones: [],
         });
 
+        // Capture modifier key state from the initiating mouse event.
+        this.activeDrag.modifiers = event ? {
+            shiftKey: !!event.shiftKey,
+            ctrlKey:  !!event.ctrlKey,
+            altKey:   !!event.altKey,
+            metaKey:  !!event.metaKey,
+        } : {};
+
         this._updateValidDropZones();
 
         // Handle 'self' mode: move element to drag layer container
@@ -94,23 +142,34 @@ class PNPDragManager {
             const container = document.querySelector('.pnp-drag-item-self-container');
             if (container) {
                 container.appendChild(el);
-                // We should also set its style to match the dragItemStyle in the layer
-                // but the layer will handle it via its own computed styles if we wrap it.
             }
         }
 
         this.isDragging.value = true;
         document.body.style.userSelect = 'none';
-        this.onStartEventBus.emit(this.activeDrag.ctx);
+
+        this._attachCancelListeners();
+
+        this.onStartEventBus.emit(this.activeDrag.ctx, this.activeDrag.modifiers);
 
         if (options.onDragStart) {
-            options.onDragStart(this.activeDrag.ctx);
+            options.onDragStart(this.activeDrag.ctx, this.activeDrag.modifiers);
         }
 
         this.dragHelper.dragStart(
             (dx, dy) => this._onDragMove(dx, dy),
             (dx, dy) => this._onDragEnd(dx, dy)
         );
+    }
+
+    /**
+     * Cancels the current drag without firing a successful drop.
+     * Clears the current drop zone so success resolves to false in _onDragEnd.
+     */
+    cancelDrag() {
+        if (!this.isDragging.value) return;
+        this.activeDrag.currentDropZone = null;
+        this.dragHelper.dragStop();
     }
 
     _onDragMove(dx, dy) {
@@ -126,20 +185,24 @@ class PNPDragManager {
     }
 
     _onDragEnd(dx, dy) {
+        // Remove cancel listeners first — they're only valid during a drag.
+        this._removeCancelListeners();
+
         const success = !!this.activeDrag.currentDropZone;
         const dragCtx = this.activeDrag.ctx;
         const dropCtx = this.activeDrag.currentDropZone?.ctx || null;
+        const modifiers = { ...this.activeDrag.modifiers };
 
-        // Call lifecycle methods
+        // Call lifecycle methods — modifiers are passed as the final parameter.
         if (this.activeDrag.options.onDropped) {
-            this.activeDrag.options.onDropped(success, dragCtx, dropCtx);
+            this.activeDrag.options.onDropped(success, dragCtx, dropCtx, modifiers);
         }
 
         if (success && this.activeDrag.currentDropZone.onDropped) {
-            this.activeDrag.currentDropZone.onDropped(dragCtx, dropCtx);
+            this.activeDrag.currentDropZone.onDropped(dragCtx, dropCtx, modifiers);
         }
 
-        this.onDroppedEventBus.emit({ success, dragCtx, dropCtx });
+        this.onDroppedEventBus.emit({ success, dragCtx, dropCtx, modifiers });
 
         // Restore 'self' element to its original position.
         // Guard with document.contains in case the parent was reactively removed during the drag.
@@ -166,6 +229,44 @@ class PNPDragManager {
         this.activeDrag.originalNextSibling = null;
     }
 
+    /**
+     * Attaches window-level listeners for cancel mechanics.
+     * Both are removed in _removeCancelListeners() when the drag ends.
+     */
+    _attachCancelListeners() {
+        if (this._config.cancelKey) {
+            this._cancelKeyHandler = (e) => {
+                if (e.key === this._config.cancelKey) {
+                    e.preventDefault();
+                    this.cancelDrag();
+                }
+            };
+            window.addEventListener('keydown', this._cancelKeyHandler);
+        }
+
+        if (this._config.rightClickCancel) {
+            this._rightClickHandler = (e) => {
+                if (e.button === 2) {
+                    e.preventDefault();
+                    this.cancelDrag();
+                }
+            };
+            window.addEventListener('mousedown', this._rightClickHandler);
+        }
+    }
+
+    /** Removes cancel listeners added by _attachCancelListeners(). */
+    _removeCancelListeners() {
+        if (this._cancelKeyHandler) {
+            window.removeEventListener('keydown', this._cancelKeyHandler);
+            this._cancelKeyHandler = null;
+        }
+        if (this._rightClickHandler) {
+            window.removeEventListener('mousedown', this._rightClickHandler);
+            this._rightClickHandler = null;
+        }
+    }
+
     _updateValidDropZones() {
         const dragKeys = this.activeDrag.keys;
         const dragCtx = this.activeDrag.ctx;
@@ -189,7 +290,7 @@ class PNPDragManager {
 
     _findDropZoneUnderMouse() {
         const { x, y } = this.activeDrag.currentMouse;
-        
+
         const elUnderMouse = document.elementFromPoint(x, y);
         if (!elUnderMouse) {
             this._updateHoverState(null);
@@ -259,7 +360,7 @@ class PNPDragManager {
                     }
                     return true;
                 });
-            
+
             const idx = siblings.indexOf(targetDraggable);
             zone.onSortHover(this.activeDrag.ctx, zone.ctx, idx);
         }

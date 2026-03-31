@@ -1,6 +1,6 @@
 # Vue Pick-n-Plop — Development TODO
 
-Agreed-upon roadmap based on design review. Grouped by concern.
+Agreed-upon roadmap. Completed items are removed; items in progress are marked.
 
 ---
 
@@ -9,16 +9,6 @@ Agreed-upon roadmap based on design review. Grouped by concern.
 - [ ] Export `PNPDragManager` **class** (not just the singleton instance) so consumers can instantiate their own
 - [ ] Directives and `PNPDragLayer` should `inject` a manager instead of importing the module-level singleton directly, falling back to the singleton if nothing is provided
 - [ ] Document the recommended component library pattern: bundle your own instance, check for an injected manager first — host apps that want full interop `provide` a shared manager
-
----
-
-## Bug Fixes
-
-- [ ] **`updated` hook on `v-pnp-draggable`**: store options on `el._pnpOptions` in `mounted` and `updated`; mousedown handler reads from `el._pnpOptions` so reactive option changes actually take effect
-- [ ] **`hasDragLayer` multi-instance**: change from a boolean `ref` to a counter `ref`; `registerDropLayer` increments, `unregisterDropLayer` decrements, guard checks `> 0` — multiple `<PNPDragLayer>` components no longer clobber each other
-- [ ] **Stale DOM refs after drop**: clear `el`, `originalParent`, `originalNextSibling` on `activeDrag` at the end of `_onDragEnd`
-- [ ] **`self` mode restore**: guard `insertBefore`/`appendChild` with `document.contains(originalParent)` so it no-ops gracefully if the parent was reactively removed during the drag
-- [ ] **Verify `PNPDragLayer`** has `pointer-events: none` on its contents so `document.elementFromPoint` punches through the drag ghost correctly (critical for sort hover detection)
 
 ---
 
@@ -39,13 +29,11 @@ The current approach mutates app data reactively during drag, which causes oscil
 
 ---
 
-## Manager Constructor & Runtime Config
+## Manager Constructor & Runtime Config ✅
 
-- [ ] Accept options object in `PNPDragManager` constructor: `{ useTouch, cancelKey, rightClickCancel }`
-  - `useTouch: false` — enable pointer event mode for touch/stylus support
-  - `cancelKey: 'Escape'` — key that cancels an in-progress drag (`null` to disable)
-  - `rightClickCancel: true` — right-click during drag cancels it
-- [ ] Add `manager.setOptions(partial)` for runtime changes; runs necessary side effects (e.g. reconstructs `GDragHelper` with `usePointerEvents: true` when `useTouch` is toggled)
+- [x] Accept options object in `PNPDragManager` constructor: `{ cancelKey, rightClickCancel }`
+- [x] Add `manager.setOptions(partial)` for runtime changes
+- [ ] `useTouch` constructor option — enable pointer event mode (implement with Touch Support below)
 
 ---
 
@@ -56,29 +44,20 @@ The current approach mutates app data reactively during drag, which causes oscil
 
 ---
 
-## Cancel Mechanics
+## Cancel Mechanics ✅
 
-- [ ] On drag start, add a `window` `keydown` listener for `cancelKey`; on fire, call `dragHelper.dragStop()` and reset drag state
-- [ ] On drag start, if `rightClickCancel` is true, add a `window` `mousedown` listener for button 2 (right click) with the same cancel behavior
-- [ ] Both listeners are added only while a drag is active and removed immediately on drag end — zero cost at rest
-
----
-
-## Modifier Key Tracking
-
-- [ ] Capture `{ shiftKey, ctrlKey, altKey, metaKey }` from the `mousedown` event into `activeDrag.modifiers` at drag start
-- [ ] Update `activeDrag.modifiers` on each `mousemove` event (modifier state is on every mouse event)
-- [ ] Add `window.addEventListener('blur', ...)` to clear `activeDrag.modifiers` to `{}` when window loses focus — prevents desync from missed `keyup` events
-- [ ] Pass `modifiers` as a parameter to `onDragStart` and `onDropped` callbacks
+- [x] On drag start, add a `window` `keydown` listener for `cancelKey`; on fire, call `cancelDrag()`
+- [x] On drag start, if `rightClickCancel` is true, add a `window` `mousedown` listener for button 2 with the same cancel behavior
+- [x] Both listeners added only while a drag is active and removed immediately on drag end
+- [x] `cancelDrag()` public method on manager
 
 ---
 
-## Drag Handles — `v-pnp-draghandle`
+## Modifier Key Tracking ✅
 
-- [ ] New `v-pnp-draghandle` directive: on `mounted`, walk up the DOM to the nearest ancestor with `data-pnp-draggable`; add self to that element's `el._pnpHandles` Set. On `unmounted`, remove self from the Set.
-- [ ] Only binds to the **nearest** `data-pnp-draggable` ancestor — stops at the first one found, so nested draggables don't accidentally claim child handles
-- [ ] Add `requireHandle` option to `v-pnp-draggable` (default `false`): when `true`, the `mousedown` handler only calls `startDrag` if `event.target` is inside one of the element's registered handles. If the Set is empty and `requireHandle: true`, drag never starts.
-- [ ] Register `v-pnp-draghandle` directive in the plugin `install` and in named exports from `index.js`
+- [x] Capture `{ shiftKey, ctrlKey, altKey, metaKey }` from the `mousedown` event into `activeDrag.modifiers` at drag start
+- [x] Add `window.addEventListener('blur', ...)` to clear `activeDrag.modifiers` to `{}` when window loses focus — prevents desync from missed `keyup` events
+- [x] Pass `modifiers` as a parameter to `onDragStart` and `onDropped` callbacks
 
 ---
 
@@ -86,9 +65,9 @@ The current approach mutates app data reactively during drag, which causes oscil
 
 - [ ] Add `groupCtx` option to `v-pnp-draggable`: an array of ctx objects representing the full selection (including the primary dragged item). Optional — `null` means single-item drag.
 - [ ] Store `groupCtx` in `activeDrag`
-- [ ] Pass `groupCtx` as the third parameter to `onDropped` callbacks: `onDropped(dragCtx, dropCtx, groupCtx)`
+- [ ] Pass `groupCtx` as the third parameter to `onDropped` callbacks: `onDropped(dragCtx, dropCtx, groupCtx, modifiers)`
 - [ ] When `dragItem` is `'component'`, pass `groupCtx` to the drag component as a prop alongside `ctx`
-- [ ] Add `showGroupCount` option (default `false`): when `true` and `groupCtx` has more than one item, overlay a `+N` badge on the clone-mode drag ghost — a lightweight multi-select indicator without needing a custom component
+- [ ] Add `showGroupCount` option (default `false`): when `true` and `groupCtx` has more than one item, overlay a `+N` badge on the clone-mode drag ghost
 
 **Conventions:**
 - `groupCtx` should be the **full selection array** (including the primary item); `dragCtx` identifies which one was physically grabbed
@@ -108,9 +87,4 @@ The current approach mutates app data reactively during drag, which causes oscil
 ## Documentation & Demo
 
 - [ ] Document `|` pipe as the canonical key separator (not comma)
-- [ ] Update demo app to exercise new features:
-  - Drag handle (`requireHandle: true` + `v-pnp-draghandle` on a grip icon)
-  - Multi-select with `groupCtx` and a stack ghost component
-  - Sortable list with new placeholder options
-  - Constructor options (`cancelKey`, `rightClickCancel`)
-  - Modifier keys passed through to callbacks
+- [ ] Update demo app to exercise remaining new features as they land

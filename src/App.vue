@@ -10,6 +10,7 @@
 import { ref, computed } from 'vue';
 import CategoryFilterDemo from './components/demos/CategoryFilterDemo.vue';
 import DragHandleDemo from './components/demos/DragHandleDemo.vue';
+import CancelModifiersDemo from './components/demos/CancelModifiersDemo.vue';
 
 /**
  * @typedef {{ id: string, label: string, icon: string, description: string, component: object }} DemoEntry
@@ -30,6 +31,13 @@ const demos = [
 		icon: '⠿',
 		description: 'Restrict drag initiation to a specific handle element',
 		component: DragHandleDemo,
+	},
+	{
+		id: 'cancel-modifiers',
+		label: 'Cancel & Modifiers',
+		icon: '⌨️',
+		description: 'Cancel keys, right-click cancel, modifier key detection',
+		component: CancelModifiersDemo,
 	},
 ];
 
