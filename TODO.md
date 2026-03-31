@@ -61,25 +61,20 @@ The current approach mutates app data reactively during drag, which causes oscil
 
 ---
 
-## Multi-Select / Group Drag
+## Multi-Select / Group Drag ✅
 
-- [ ] Add `groupCtx` option to `v-pnp-draggable`: an array of ctx objects representing the full selection (including the primary dragged item). Optional — `null` means single-item drag.
-- [ ] Store `groupCtx` in `activeDrag`
-- [ ] Pass `groupCtx` as the third parameter to `onDropped` callbacks: `onDropped(dragCtx, dropCtx, groupCtx, modifiers)`
-- [ ] When `dragItem` is `'component'`, pass `groupCtx` to the drag component as a prop alongside `ctx`
-- [ ] Add `showGroupCount` option (default `false`): when `true` and `groupCtx` has more than one item, overlay a `+N` badge on the clone-mode drag ghost
-
-**Conventions:**
-- `groupCtx` should be the **full selection array** (including the primary item); `dragCtx` identifies which one was physically grabbed
-- Key validation uses only the primary item's keys — app logic in `onDropped` handles any per-item filtering
-- `self` mode with `groupCtx`: only the primary element moves; app removes the rest in `onDropped`
+- [x] Add `groupCtx` option to `v-pnp-draggable`: an array of ctx objects representing the full selection (including the primary dragged item). Optional — `null` means single-item drag.
+- [x] Store `groupCtx` in `activeDrag`
+- [x] Pass `groupCtx` as the third parameter to `onDropped` callbacks: `onDropped(dragCtx, dropCtx, groupCtx, modifiers)`
+- [x] When `dragItem` is `'component'`, pass `groupCtx` to the drag component as a prop alongside `ctx`
+- [x] Add `showGroupCount` option (default `false`): when `true` and `groupCtx` has more than one item, overlay a `+N` badge on the clone-mode drag ghost
 
 ---
 
-## Validation Flags Cleanup
+## Validation Flags Cleanup ✅
 
-- [ ] Rename `callDragValidateFunctionOnStart` → `validateOnStart` (draggable option)
-- [ ] Rename `callDropValidateFunctionsOnStart` → `validateOnStart` (dropzone option)
+- [x] Rename `callDragValidateFunctionOnStart` → `validateOnStart` (draggable option)
+- [x] Rename `callDropValidateFunctionsOnStart` → `validateOnStart` (dropzone option)
 - [ ] Update docs: validation functions are intentionally off by default (keys are the entry-level mechanism); `validateOnStart: true` is the opt-in for apps with more complex per-item logic
 
 ---

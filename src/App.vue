@@ -11,6 +11,7 @@ import { ref, computed } from 'vue';
 import CategoryFilterDemo from './components/demos/CategoryFilterDemo.vue';
 import DragHandleDemo from './components/demos/DragHandleDemo.vue';
 import CancelModifiersDemo from './components/demos/CancelModifiersDemo.vue';
+import MultiSelectDemo from './components/demos/MultiSelectDemo.vue';
 
 /**
  * @typedef {{ id: string, label: string, icon: string, description: string, component: object }} DemoEntry
@@ -38,6 +39,13 @@ const demos = [
 		icon: '⌨️',
 		description: 'Cancel keys, right-click cancel, modifier key detection',
 		component: CancelModifiersDemo,
+	},
+	{
+		id: 'multi-select',
+		label: 'Multi-Select',
+		icon: '☑️',
+		description: 'Click to select multiple cards, drag them all at once',
+		component: MultiSelectDemo,
 	},
 ];
 

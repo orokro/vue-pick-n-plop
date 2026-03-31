@@ -105,9 +105,10 @@ const addLog = (emoji, text) => {
  *
  * @param {{ id: number }} dragCtx
  * @param {Object} _dropCtx
+ * @param {Array|null} _groupCtx
  * @param {{ altKey: boolean, shiftKey: boolean }} modifiers
  */
-const handleDrop = (dragCtx, _dropCtx, modifiers) => {
+const handleDrop = (dragCtx, _dropCtx, _groupCtx, modifiers) => {
 	const item = ITEMS.find(i => i.id === dragCtx.id);
 	if (!item) return;
 

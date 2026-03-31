@@ -48,6 +48,8 @@ class PNPDragManager {
             originalNextSibling: null,
             keys: [],
             ctx: {},
+            /** Full selection array when multi-select is active; null for single-item drag. */
+            groupCtx: null,
             options: {},
             startMouse: { x: 0, y: 0 },
             currentMouse: { x: 0, y: 0 },
@@ -118,6 +120,7 @@ class PNPDragManager {
             originalNextSibling: el.nextSibling,
             keys,
             ctx: options.ctx || {},
+            groupCtx: options.groupCtx || null,
             options,
             startMouse: { ...mouse },
             currentMouse: { ...mouse },
@@ -150,10 +153,10 @@ class PNPDragManager {
 
         this._attachCancelListeners();
 
-        this.onStartEventBus.emit(this.activeDrag.ctx, this.activeDrag.modifiers);
+        this.onStartEventBus.emit(this.activeDrag.ctx, this.activeDrag.groupCtx, this.activeDrag.modifiers);
 
         if (options.onDragStart) {
-            options.onDragStart(this.activeDrag.ctx, this.activeDrag.modifiers);
+            options.onDragStart(this.activeDrag.ctx, this.activeDrag.groupCtx, this.activeDrag.modifiers);
         }
 
         this.dragHelper.dragStart(
@@ -191,18 +194,20 @@ class PNPDragManager {
         const success = !!this.activeDrag.currentDropZone;
         const dragCtx = this.activeDrag.ctx;
         const dropCtx = this.activeDrag.currentDropZone?.ctx || null;
+        const groupCtx = this.activeDrag.groupCtx;
         const modifiers = { ...this.activeDrag.modifiers };
 
-        // Call lifecycle methods — modifiers are passed as the final parameter.
+        // Callbacks: (success, dragCtx, dropCtx, groupCtx, modifiers) for draggable side;
+        //            (dragCtx, dropCtx, groupCtx, modifiers) for dropzone side.
         if (this.activeDrag.options.onDropped) {
-            this.activeDrag.options.onDropped(success, dragCtx, dropCtx, modifiers);
+            this.activeDrag.options.onDropped(success, dragCtx, dropCtx, groupCtx, modifiers);
         }
 
         if (success && this.activeDrag.currentDropZone.onDropped) {
-            this.activeDrag.currentDropZone.onDropped(dragCtx, dropCtx, modifiers);
+            this.activeDrag.currentDropZone.onDropped(dragCtx, dropCtx, groupCtx, modifiers);
         }
 
-        this.onDroppedEventBus.emit({ success, dragCtx, dropCtx, modifiers });
+        this.onDroppedEventBus.emit({ success, dragCtx, dropCtx, groupCtx, modifiers });
 
         // Restore 'self' element to its original position.
         // Guard with document.contains in case the parent was reactively removed during the drag.
@@ -287,7 +292,7 @@ class PNPDragManager {
                 valid = intersection.length > 0;
             }
 
-            if (valid && (this.activeDrag.options.callDragValidateFunctionOnStart || zone.callDropValidateFunctionsOnStart)) {
+            if (valid && (this.activeDrag.options.validateOnStart || zone.validateOnStart)) {
                 if (zone.validate && !zone.validate(dragCtx)) valid = false;
                 if (valid && this.activeDrag.options.validate && !this.activeDrag.options.validate(zone.ctx)) valid = false;
             }

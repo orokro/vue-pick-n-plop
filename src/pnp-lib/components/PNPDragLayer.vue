@@ -79,13 +79,19 @@ const isComponentMode = computed(() => {
 
         <!-- Mode: clone -->
         <div v-if="activeDrag.options.dragItem === 'clone'" :style="dragItemStyle" ref="cloneEl" class="pnp-drag-item-clone">
+            <!-- +N badge: shown when showGroupCount is on and more than one item is selected -->
+            <span
+                v-if="activeDrag.options.showGroupCount && activeDrag.groupCtx && activeDrag.groupCtx.length > 1"
+                class="pnp-group-count-badge"
+            >{{ activeDrag.groupCtx.length }}</span>
         </div>
 
         <!-- Mode: component -->
         <div v-else-if="isComponentMode" :style="dragItemStyle" class="pnp-drag-item-component">
-            <component 
-                :is="activeDrag.options.dragItem" 
-                :ctx="activeDrag.ctx" 
+            <component
+                :is="activeDrag.options.dragItem"
+                :ctx="activeDrag.ctx"
+                :group-ctx="activeDrag.groupCtx"
                 :delta="activeDrag.delta"
                 :start-mouse="activeDrag.startMouse"
                 :current-mouse="activeDrag.currentMouse"
@@ -105,5 +111,25 @@ const isComponentMode = computed(() => {
 <style scoped>
 .pnp-drag-layer {
     user-select: none;
+}
+
+.pnp-group-count-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    pointer-events: none;
+    z-index: 2;
 }
 </style>
