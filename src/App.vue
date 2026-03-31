@@ -9,6 +9,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import CategoryFilterDemo from './components/demos/CategoryFilterDemo.vue';
+import DragHandleDemo from './components/demos/DragHandleDemo.vue';
 
 /**
  * @typedef {{ id: string, label: string, icon: string, description: string, component: object }} DemoEntry
@@ -22,6 +23,13 @@ const demos = [
 		icon: '🗂️',
 		description: 'Drag items to overlapping category zones',
 		component: CategoryFilterDemo,
+	},
+	{
+		id: 'drag-handle',
+		label: 'Drag Handles',
+		icon: '⠿',
+		description: 'Restrict drag initiation to a specific handle element',
+		component: DragHandleDemo,
 	},
 ];
 

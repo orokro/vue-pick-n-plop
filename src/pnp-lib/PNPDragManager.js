@@ -40,16 +40,18 @@ class PNPDragManager {
             validDropZones: [],
         });
 
-        this.hasDragLayer = ref(false);
+        // Counter rather than boolean so multiple PNPDragLayer instances
+        // can mount/unmount independently without clobbering each other.
+        this.hasDragLayer = ref(0);
         this.hoveredZoneId = ref(null);
     }
 
     registerDropLayer() {
-        this.hasDragLayer.value = true;
+        this.hasDragLayer.value++;
     }
 
     unregisterDropLayer() {
-        this.hasDragLayer.value = false;
+        this.hasDragLayer.value = Math.max(0, this.hasDragLayer.value - 1);
     }
 
     registerDropZone(zone) {
@@ -61,7 +63,7 @@ class PNPDragManager {
     }
 
     startDrag(el, options, event) {
-        if (!this.hasDragLayer.value) {
+        if (this.hasDragLayer.value < 1) {
             console.warn('[PNP] No <PNPDragLayer /> mounted. Dragging disabled.');
             return;
         }
@@ -139,10 +141,11 @@ class PNPDragManager {
 
         this.onDroppedEventBus.emit({ success, dragCtx, dropCtx });
 
-        // Restore 'self' element if needed
+        // Restore 'self' element to its original position.
+        // Guard with document.contains in case the parent was reactively removed during the drag.
         if (this.activeDrag.options.dragItem === 'self' && this.activeDrag.el) {
             const { el, originalParent, originalNextSibling } = this.activeDrag;
-            if (originalParent) {
+            if (originalParent && document.contains(originalParent)) {
                 if (originalNextSibling) {
                     originalParent.insertBefore(el, originalNextSibling);
                 } else {
@@ -156,6 +159,11 @@ class PNPDragManager {
         document.body.style.userSelect = '';
         this.activeDrag.currentDropZone = null;
         this.hoveredZoneId.value = null;
+
+        // Clear stale DOM references so they can be garbage collected.
+        this.activeDrag.el = null;
+        this.activeDrag.originalParent = null;
+        this.activeDrag.originalNextSibling = null;
     }
 
     _updateValidDropZones() {
