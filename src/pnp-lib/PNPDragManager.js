@@ -248,10 +248,18 @@ class PNPDragManager {
             this._rightClickHandler = (e) => {
                 if (e.button === 2) {
                     e.preventDefault();
+                    e.stopPropagation();
                     this.cancelDrag();
+                    // cancelDrag() → _removeCancelListeners() has already run by this point,
+                    // but contextmenu fires after mouseup — well after this handler.
+                    // Attach a self-removing one-shot suppressor that outlives the cleanup.
+                    window.addEventListener('contextmenu', (ce) => {
+                        ce.preventDefault();
+                        ce.stopPropagation();
+                    }, { capture: true, once: true });
                 }
             };
-            window.addEventListener('mousedown', this._rightClickHandler);
+            window.addEventListener('mousedown', this._rightClickHandler, true);
         }
     }
 
@@ -262,7 +270,7 @@ class PNPDragManager {
             this._cancelKeyHandler = null;
         }
         if (this._rightClickHandler) {
-            window.removeEventListener('mousedown', this._rightClickHandler);
+            window.removeEventListener('mousedown', this._rightClickHandler, true);
             this._rightClickHandler = null;
         }
     }
