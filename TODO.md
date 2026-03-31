@@ -12,35 +12,29 @@ Agreed-upon roadmap. Completed items are removed; items in progress are marked.
 
 ---
 
-## Sorting Overhaul
+## Sorting Overhaul ✅
 
-The current approach mutates app data reactively during drag, which causes oscillation. The new approach has the library own the placeholder.
-
-- [ ] Library manages a **placeholder DOM element**: on sort-drag start, measure the dragged element's rect, insert a placeholder at the original position, move the placeholder as the user drags past midpoints, remove on drop
-- [ ] App data is never mutated during the drag — `onSortHover` becomes optional; the critical event is `onSortDrop` (or fold a `toIndex` param into the existing `onDropped`)
-- [ ] **Midpoint threshold**: only trigger a position swap when the cursor crosses the vertical (or horizontal) midpoint of the hovered sibling — eliminates oscillation
-- [ ] **rAF throttle**: gate `_handleSortHover` through `requestAnimationFrame` so sort evaluation is capped to one per frame
-- [ ] **Placeholder style option** on the dropzone — `placeholder: 'space' | 'line' | 'clone' | 'component'`:
-  - `space` (default): invisible div sized to the dragged element's bounding rect — layout-agnostic
-  - `line`: thin insertion indicator line; direction determined by `orientation`
-  - `clone`: semi-transparent DOM clone of the dragged element inserted at the placeholder position
-  - `component`: custom Vue component mounted as the placeholder; receives `dragCtx` as prop
-- [ ] **`orientation` option** on sortable dropzone: `'vertical'` (default) | `'horizontal'` | `'grid'`; used by `line` placeholder to know which axis to draw on. In `grid` orientation, `line` falls back to `space`.
+- [x] Library manages a **placeholder DOM element**: on sort-drag start, measure the dragged element's rect, insert a placeholder at the original position, move the placeholder as the user drags past midpoints, remove on drop
+- [x] App data is never mutated during the drag — `onSortHover` becomes optional; the critical event is `onSortDrop(dragCtx, dropCtx, fromIndex, toIndex, groupCtx, modifiers)`
+- [x] **Midpoint threshold**: only trigger a position swap when the cursor crosses the vertical (or horizontal) midpoint of the hovered sibling — eliminates oscillation
+- [x] **rAF throttle**: gate `_handleSortHover` through `requestAnimationFrame` so sort evaluation is capped to one per frame
+- [x] **Placeholder style option**: `placeholder: 'space'` (default invisible ghost) | `'line'` (thin insertion indicator)
+- [x] **`orientation` option**: `'vertical'` (default) | `'horizontal'`; controls midpoint axis and line direction
+- [ ] Placeholder `'clone'` and `'component'` styles (deferred)
 
 ---
 
 ## Manager Constructor & Runtime Config ✅
 
-- [x] Accept options object in `PNPDragManager` constructor: `{ cancelKey, rightClickCancel }`
-- [x] Add `manager.setOptions(partial)` for runtime changes
-- [ ] `useTouch` constructor option — enable pointer event mode (implement with Touch Support below)
+- [x] Accept options object in `PNPDragManager` constructor: `{ cancelKey, rightClickCancel, useTouch }`
+- [x] Add `manager.setOptions(partial)` for runtime changes — recreates DragHelper if `useTouch` changes
 
 ---
 
-## Touch Support
+## Touch Support ✅
 
-- [ ] When `useTouch` is enabled, instantiate `GDragHelper` with `{ usePointerEvents: true }` — pointer events natively unify mouse, touch, and stylus; `pageX/pageY` works correctly on all
-- [ ] Add `pointerdown` listener to `v-pnp-draggable` alongside `mousedown` when touch is enabled (or replace `mousedown` with `pointerdown` in pointer-events mode)
+- [x] `useTouch` constructor/setOptions option — recreates GDragHelper with `{ usePointerEvents: true }` when enabled
+- [x] `pointerdown` listener added alongside `mousedown` in `v-pnp-draggable`; each checks `manager._config.useTouch` at runtime so no re-registration needed when the option changes
 
 ---
 

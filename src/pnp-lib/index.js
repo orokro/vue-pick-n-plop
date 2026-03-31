@@ -3,6 +3,7 @@ import vPnpDraggable from './directives/v-pnp-draggable';
 import vPnpDropzone from './directives/v-pnp-dropzone';
 import vPnpDraghandle from './directives/v-pnp-draghandle';
 import { usePNPDragging } from './usePNPDragging';
+import { manager } from './PNPDragManager';
 
 export default {
 	/**

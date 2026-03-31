@@ -24,14 +24,11 @@ export default {
 		el._pnpOptions = binding.value || {};
 
 		/**
-		 * Initiates a drag on left mousedown. If requireHandle is true, only proceeds
-		 * if the event target falls inside one of the element's registered drag handles.
+		 * Shared drag-start logic used by both mousedown and pointerdown handlers.
 		 *
-		 * @param {MouseEvent} event
+		 * @param {MouseEvent|PointerEvent} event
 		 */
-		const onMouseDown = (event) => {
-			if (event.button !== 0) return;
-
+		const tryStartDrag = (event) => {
 			const opts = el._pnpOptions;
 
 			if (opts.requireHandle) {
@@ -44,8 +41,36 @@ export default {
 			manager.startDrag(el, opts, event);
 		};
 
+		/**
+		 * Mouse drag initiator — active when useTouch is false (default).
+		 * Skipped when useTouch is true since pointerdown handles everything in that mode.
+		 *
+		 * @param {MouseEvent} event
+		 */
+		const onMouseDown = (event) => {
+			if (manager._config.useTouch) return; // pointerdown handles all input in touch mode
+			if (event.button !== 0) return;
+			tryStartDrag(event);
+		};
+
+		/**
+		 * Touch/pointer drag initiator — only active when useTouch is true.
+		 * Fires for ALL pointer types in that mode (mouse + touch + stylus) so the
+		 * app gets a single unified code path regardless of input device.
+		 *
+		 * @param {PointerEvent} event
+		 */
+		const onPointerDown = (event) => {
+			if (!manager._config.useTouch) return;
+			// Ignore non-primary pointer buttons (right-click, etc.).
+			if (event.button !== 0) return;
+			tryStartDrag(event);
+		};
+
 		el._pnpMouseDown = onMouseDown;
+		el._pnpPointerDown = onPointerDown;
 		el.addEventListener('mousedown', onMouseDown);
+		el.addEventListener('pointerdown', onPointerDown);
 	},
 
 	/**
@@ -67,6 +92,10 @@ export default {
 		if (el._pnpMouseDown) {
 			el.removeEventListener('mousedown', el._pnpMouseDown);
 			delete el._pnpMouseDown;
+		}
+		if (el._pnpPointerDown) {
+			el.removeEventListener('pointerdown', el._pnpPointerDown);
+			delete el._pnpPointerDown;
 		}
 		delete el._pnpOptions;
 	},

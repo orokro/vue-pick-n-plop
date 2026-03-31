@@ -22,11 +22,11 @@ class PNPDragManager {
      * @param {Object} [options]
      * @param {string|null} [options.cancelKey='Escape'] - Key that cancels an active drag. null to disable.
      * @param {boolean} [options.rightClickCancel=true] - Right-click during drag cancels it.
+     * @param {boolean} [options.useTouch=false] - Enable pointer events mode for touch/stylus support.
      */
     constructor(options = {}) {
         this.isDragging = ref(false);
         this.dragZones = shallowRef([]);
-        this.dragHelper = new DragHelper();
         this.onStartEventBus = new EventBus();
         this.onDroppedEventBus = new EventBus();
 
@@ -34,12 +34,22 @@ class PNPDragManager {
         this._config = {
             cancelKey: 'Escape',
             rightClickCancel: true,
+            useTouch: false,
             ...options,
         };
+
+        // DragHelper instantiated based on useTouch option.
+        this.dragHelper = new DragHelper(
+            this._config.useTouch ? { usePointerEvents: true } : {}
+        );
 
         // Refs for cancel listeners — attached on drag start, removed on drag end.
         this._cancelKeyHandler = null;
         this._rightClickHandler = null;
+
+        // Sort state — managed across the drag lifecycle.
+        this._sortRafPending = false;
+        this._sortOriginalDisplay = '';
 
         // Current drag state
         this.activeDrag = reactive({
@@ -59,6 +69,12 @@ class PNPDragManager {
             validDropZones: [],
             /** Modifier key state captured at drag start; cleared on window blur. */
             modifiers: {},
+            /** Placeholder DOM element inserted by the library during a sort drag. */
+            sortPlaceholder: null,
+            /** Zone id where the sort drag originated. */
+            sortOriginZoneId: null,
+            /** Index of the dragged item among sortable siblings at drag start. */
+            sortFromIndex: -1,
         });
 
         // Counter rather than boolean so multiple PNPDragLayer instances
@@ -90,19 +106,23 @@ class PNPDragManager {
 
     /**
      * Merges partial options into the manager's runtime config.
+     * If useTouch changes, the DragHelper is recreated with the appropriate event mode.
      * Takes effect on the next drag — does not affect any drag currently in progress.
      *
-     * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean }>} opts
+     * @param {Partial<{ cancelKey: string|null, rightClickCancel: boolean, useTouch: boolean }>} opts
      */
     setOptions(opts) {
         if (!opts) return;
+        if ('useTouch' in opts && opts.useTouch !== this._config.useTouch) {
+            this.dragHelper = new DragHelper(opts.useTouch ? { usePointerEvents: true } : {});
+        }
         Object.assign(this._config, opts);
     }
 
     /**
      * @param {HTMLElement} el
      * @param {Object} options
-     * @param {MouseEvent} [event]
+     * @param {MouseEvent|PointerEvent} [event]
      */
     startDrag(el, options, event) {
         if (this.hasDragLayer.value < 1) {
@@ -128,9 +148,12 @@ class PNPDragManager {
             initialRect: rect,
             currentDropZone: null,
             validDropZones: [],
+            sortPlaceholder: null,
+            sortOriginZoneId: null,
+            sortFromIndex: -1,
         });
 
-        // Capture modifier key state from the initiating mouse event.
+        // Capture modifier key state from the initiating mouse/pointer event.
         this.activeDrag.modifiers = event ? {
             shiftKey: !!event.shiftKey,
             ctrlKey:  !!event.ctrlKey,
@@ -146,6 +169,14 @@ class PNPDragManager {
             if (container) {
                 container.appendChild(el);
             }
+        }
+
+        // Initialize sort placeholder if dragging from within a sortable zone.
+        const originSortZone = this.dragZones.value.find(
+            z => z.sortable && z.el && z.el.contains(el)
+        );
+        if (originSortZone) {
+            this._initSort(el, originSortZone);
         }
 
         this.isDragging.value = true;
@@ -196,6 +227,12 @@ class PNPDragManager {
         const dropCtx = this.activeDrag.currentDropZone?.ctx || null;
         const groupCtx = this.activeDrag.groupCtx;
         const modifiers = { ...this.activeDrag.modifiers };
+        const dropZone = this.activeDrag.currentDropZone;
+
+        // Clean up sort placeholder before firing callbacks so the app's onSortDrop
+        // receives the correct toIndex, and the placeholder is gone before Vue re-renders.
+        const draggedEl = this.activeDrag.el;
+        this._cleanupSort(success, dropZone, dragCtx, dropCtx, groupCtx, modifiers, draggedEl);
 
         // Callbacks: (success, dragCtx, dropCtx, groupCtx, modifiers) for draggable side;
         //            (dragCtx, dropCtx, groupCtx, modifiers) for dropzone side.
@@ -203,8 +240,8 @@ class PNPDragManager {
             this.activeDrag.options.onDropped(success, dragCtx, dropCtx, groupCtx, modifiers);
         }
 
-        if (success && this.activeDrag.currentDropZone.onDropped) {
-            this.activeDrag.currentDropZone.onDropped(dragCtx, dropCtx, groupCtx, modifiers);
+        if (success && dropZone.onDropped) {
+            dropZone.onDropped(dragCtx, dropCtx, groupCtx, modifiers);
         }
 
         this.onDroppedEventBus.emit({ success, dragCtx, dropCtx, groupCtx, modifiers });
@@ -234,6 +271,203 @@ class PNPDragManager {
         this.activeDrag.originalNextSibling = null;
     }
 
+    // ─── Sort ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Sets up the sort placeholder when a drag begins from inside a sortable zone.
+     * The placeholder visually takes the dragged item's place; the item is hidden.
+     *
+     * @param {HTMLElement} el - The dragged element.
+     * @param {Object} zone - The registered drop zone the drag originated from.
+     */
+    _initSort(el, zone) {
+        // Capture fromIndex before any DOM changes.
+        const siblings = this._getSortSiblings(zone, el);
+        const fromIndex = siblings.indexOf(el);
+
+        const rect = el.getBoundingClientRect();
+        const placeholder = document.createElement('div');
+        placeholder.setAttribute('data-pnp-placeholder', 'true');
+        placeholder.style.boxSizing = 'border-box';
+        placeholder.style.pointerEvents = 'none';
+        placeholder.style.flexShrink = '0';
+
+        const styleMode = zone.placeholder || 'space';
+        const isHorizontal = zone.orientation === 'horizontal';
+
+        if (styleMode === 'line') {
+            if (isHorizontal) {
+                placeholder.style.width = '3px';
+                placeholder.style.height = rect.height + 'px';
+                placeholder.style.margin = '0 2px';
+            } else {
+                placeholder.style.width = '100%';
+                placeholder.style.height = '3px';
+                placeholder.style.margin = '2px 0';
+            }
+            placeholder.style.background = '#4a90d9';
+            placeholder.style.borderRadius = '2px';
+        } else {
+            // 'space' (default): invisible ghost sized to the dragged element
+            placeholder.style.width = rect.width + 'px';
+            placeholder.style.height = rect.height + 'px';
+            placeholder.style.opacity = '0';
+        }
+
+        // Insert placeholder at el's position, then hide el.
+        el.parentElement.insertBefore(placeholder, el);
+        this._sortOriginalDisplay = el.style.display;
+        el.style.display = 'none';
+
+        this.activeDrag.sortPlaceholder = placeholder;
+        this.activeDrag.sortOriginZoneId = zone.id;
+        this.activeDrag.sortFromIndex = fromIndex;
+    }
+
+    /**
+     * Fires the onSortDrop callback, removes the placeholder, and restores the
+     * dragged element's visibility. Called from _onDragEnd before Vue re-renders.
+     *
+     * @param {boolean} success
+     * @param {Object|null} dropZone
+     * @param {*} dragCtx
+     * @param {*} dropCtx
+     * @param {*} groupCtx
+     * @param {Object} modifiers
+     * @param {HTMLElement|null} draggedEl - Captured reference before activeDrag is cleared.
+     */
+    _cleanupSort(success, dropZone, dragCtx, dropCtx, groupCtx, modifiers, draggedEl) {
+        const placeholder = this.activeDrag.sortPlaceholder;
+        if (!placeholder) return;
+
+        if (success && dropZone && dropZone.sortable && dropZone.onSortDrop) {
+            const toIndex = this._getPlaceholderIndex(dropZone, placeholder);
+            const fromIndex = this.activeDrag.sortFromIndex;
+            dropZone.onSortDrop(dragCtx, dropCtx, fromIndex, toIndex, groupCtx, modifiers);
+        }
+
+        placeholder.remove();
+        this.activeDrag.sortPlaceholder = null;
+
+        // Defer restoring visibility one rAF so Vue has flushed its re-render first,
+        // preventing a flash of the element at its original DOM position.
+        const origDisplay = this._sortOriginalDisplay;
+        if (draggedEl) {
+            requestAnimationFrame(() => {
+                draggedEl.style.display = origDisplay || '';
+            });
+        }
+    }
+
+    /**
+     * Returns the 0-based index of the placeholder among the dropzone's draggable
+     * children (excluding the hidden original element).
+     *
+     * @param {Object} zone
+     * @param {HTMLElement} placeholder
+     * @returns {number}
+     */
+    _getPlaceholderIndex(zone, placeholder) {
+        const children = Array.from(zone.el.children);
+        const draggedEl = this.activeDrag.el;
+        let index = 0;
+        for (const child of children) {
+            if (child === placeholder) break;
+            if (child.hasAttribute('data-pnp-draggable') && child !== draggedEl) {
+                index++;
+            }
+        }
+        return index;
+    }
+
+    /**
+     * Returns direct sortable children of the zone that should be considered
+     * when computing midpoints, excluding the hidden dragged element and the
+     * placeholder (which has no data-pnp-draggable attribute anyway).
+     *
+     * @param {Object} zone
+     * @param {HTMLElement} [explicitDraggedEl] - Optional override for draggedEl
+     * @returns {HTMLElement[]}
+     */
+    _getSortSiblings(zone, explicitDraggedEl) {
+        const draggedEl = explicitDraggedEl ?? this.activeDrag.el;
+        return Array.from(zone.el.querySelectorAll('[data-pnp-draggable]'))
+            .filter(el => {
+                if (el === draggedEl) return false;
+                // Exclude draggables inside nested sortable sub-zones.
+                let parent = el.parentElement;
+                while (parent && parent !== zone.el) {
+                    if (parent.hasAttribute('data-pnp-dropzone') &&
+                        parent.getAttribute('data-pnp-sortable') === 'true') return false;
+                    parent = parent.parentElement;
+                }
+                return true;
+            });
+    }
+
+    /**
+     * Handles sort-hover logic via rAF throttle + midpoint threshold.
+     * Called on every drag-move when over a sortable zone.
+     *
+     * @param {Object} zone
+     */
+    _handleSortHover(zone) {
+        if (this._sortRafPending) return;
+        this._sortRafPending = true;
+        requestAnimationFrame(() => {
+            this._sortRafPending = false;
+            this._doSortMove(zone);
+        });
+    }
+
+    /**
+     * Moves the placeholder to the correct insertion point using midpoint threshold.
+     * Also handles cross-zone moves (placeholder may come from a different zone).
+     *
+     * @param {Object} zone
+     */
+    _doSortMove(zone) {
+        if (!this.isDragging.value) return;
+
+        const placeholder = this.activeDrag.sortPlaceholder;
+        if (!placeholder) return;
+
+        // Move placeholder into this zone if it isn't here yet (cross-zone drag).
+        if (placeholder.parentElement !== zone.el) {
+            zone.el.appendChild(placeholder);
+        }
+
+        const { x, y } = this.activeDrag.currentMouse;
+        const isHorizontal = zone.orientation === 'horizontal';
+        const siblings = this._getSortSiblings(zone);
+
+        // Walk siblings in order; insert placeholder before the first one whose
+        // midpoint is past the cursor, or append after all if none qualify.
+        let insertBefore = null;
+        for (const sibling of siblings) {
+            const rect = sibling.getBoundingClientRect();
+            const mid = isHorizontal
+                ? rect.left + rect.width / 2
+                : rect.top + rect.height / 2;
+            if ((isHorizontal ? x : y) < mid) {
+                insertBefore = sibling;
+                break;
+            }
+        }
+
+        if (insertBefore) {
+            if (placeholder.nextSibling !== insertBefore) {
+                zone.el.insertBefore(placeholder, insertBefore);
+            }
+        } else {
+            if (zone.el.lastChild !== placeholder) {
+                zone.el.appendChild(placeholder);
+            }
+        }
+    }
+
+    // ─── Drop zone detection ───────────────────────────────────────────────────
+
     /**
      * Attaches window-level listeners for cancel mechanics.
      * Both are removed in _removeCancelListeners() when the drag ends.
@@ -255,9 +489,8 @@ class PNPDragManager {
                     e.preventDefault();
                     e.stopPropagation();
                     this.cancelDrag();
-                    // cancelDrag() → _removeCancelListeners() has already run by this point,
-                    // but contextmenu fires after mouseup — well after this handler.
-                    // Attach a self-removing one-shot suppressor that outlives the cleanup.
+                    // contextmenu fires after mouseup — add a one-shot suppressor that
+                    // outlives the cancelDrag() → _removeCancelListeners() cleanup.
                     window.addEventListener('contextmenu', (ce) => {
                         ce.preventDefault();
                         ce.stopPropagation();
@@ -342,40 +575,6 @@ class PNPDragManager {
         if (zone) {
             if (zone.onHover) zone.onHover(this.activeDrag.ctx, zone.ctx);
             if (zone.sortable) this._handleSortHover(zone);
-        }
-    }
-
-    _handleSortHover(zone) {
-        const { x, y } = this.activeDrag.currentMouse;
-        const elUnderMouse = document.elementFromPoint(x, y);
-        if (!elUnderMouse) return;
-
-        let currentEl = elUnderMouse;
-        let targetDraggable = null;
-
-        while (currentEl && currentEl !== zone.el) {
-            if (currentEl.hasAttribute('data-pnp-draggable')) {
-                targetDraggable = currentEl;
-                break;
-            }
-            currentEl = currentEl.parentElement;
-        }
-
-        if (targetDraggable && zone.onSortHover) {
-            const siblings = Array.from(zone.el.querySelectorAll('[data-pnp-draggable]'))
-                .filter(el => {
-                    let parent = el.parentElement;
-                    while (parent && parent !== zone.el) {
-                        if (parent.hasAttribute('data-pnp-dropzone') && parent.getAttribute('data-pnp-sortable') === 'true') {
-                            return false;
-                        }
-                        parent = parent.parentElement;
-                    }
-                    return true;
-                });
-
-            const idx = siblings.indexOf(targetDraggable);
-            zone.onSortHover(this.activeDrag.ctx, zone.ctx, idx);
         }
     }
 

@@ -12,6 +12,7 @@ import CategoryFilterDemo from './components/demos/CategoryFilterDemo.vue';
 import DragHandleDemo from './components/demos/DragHandleDemo.vue';
 import CancelModifiersDemo from './components/demos/CancelModifiersDemo.vue';
 import MultiSelectDemo from './components/demos/MultiSelectDemo.vue';
+import SortTouchDemo from './components/demos/SortTouchDemo.vue';
 
 /**
  * @typedef {{ id: string, label: string, icon: string, description: string, component: object }} DemoEntry
@@ -46,6 +47,13 @@ const demos = [
 		icon: '☑️',
 		description: 'Click to select multiple cards, drag them all at once',
 		component: MultiSelectDemo,
+	},
+	{
+		id: 'sort-touch',
+		label: 'Sort & Touch',
+		icon: '↕️',
+		description: 'Reorder lists with placeholder, no oscillation, touch support',
+		component: SortTouchDemo,
 	},
 ];
 
