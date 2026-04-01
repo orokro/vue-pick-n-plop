@@ -1,6 +1,6 @@
 # Mine
 misc/
-
+publish.sh
 # Logs
 logs
 *.log
