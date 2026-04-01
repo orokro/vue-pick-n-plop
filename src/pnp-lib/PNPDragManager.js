@@ -82,6 +82,7 @@ class PNPDragManager {
         // can mount/unmount independently without clobbering each other.
         this.hasDragLayer = ref(0);
         this.hoveredZoneId = ref(null);
+        this.dragId = ref(0);
 
         // Clear modifier state if the window loses focus mid-drag to prevent
         // desync from missed keyup events (e.g. alt-tab while holding Alt).
@@ -180,6 +181,7 @@ class PNPDragManager {
             this._initSort(el, originSortZone);
         }
 
+        this.dragId.value++;
         this.isDragging.value = true;
         document.body.style.userSelect = 'none';
 
@@ -266,10 +268,25 @@ class PNPDragManager {
         this.activeDrag.currentDropZone = null;
         this.hoveredZoneId.value = null;
 
-        // Clear stale DOM references so they can be garbage collected.
-        this.activeDrag.el = null;
-        this.activeDrag.originalParent = null;
-        this.activeDrag.originalNextSibling = null;
+        // Clear all drag state
+        Object.assign(this.activeDrag, {
+            el: null,
+            originalParent: null,
+            originalNextSibling: null,
+            keys: [],
+            ctx: {},
+            groupCtx: null,
+            options: {},
+            startMouse: { x: 0, y: 0 },
+            currentMouse: { x: 0, y: 0 },
+            delta: { x: 0, y: 0 },
+            initialRect: null,
+            validDropZones: [],
+            modifiers: {},
+            sortPlaceholder: null,
+            sortOriginZoneId: null,
+            sortFromIndex: -1,
+        });
     }
 
     // ─── Sort ──────────────────────────────────────────────────────────────────

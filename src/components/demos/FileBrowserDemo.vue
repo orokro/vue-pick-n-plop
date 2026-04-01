@@ -14,7 +14,7 @@
 	  - Dragging an unselected file performs a plain clone-ghost single-file drag
 -->
 <script setup>
-import { ref, computed, onBeforeUnmount, defineComponent, h, onMounted } from 'vue';
+import { ref, computed, onBeforeUnmount, defineComponent, h, onMounted, markRaw } from 'vue';
 
 // ─── File icon helper ──────────────────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ const handleClick = (file, event) => {
  *
  * @type {import('vue').Component}
  */
-const FilePileGhost = defineComponent({
+const FilePileGhost = markRaw(defineComponent({
 	name: 'FilePileGhost',
 	props: ['ctx', 'groupCtx', 'delta', 'startMouse', 'currentMouse'],
 
@@ -316,7 +316,7 @@ const FilePileGhost = defineComponent({
 			]);
 		};
 	},
-});
+}));
 
 // ─── Draggable options ─────────────────────────────────────────────────────────
 
