@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
   const isLibrary = process.env.BUILD_MODE === 'lib'
 
   const config = {
+    // Relative base path for demo builds so they work on github.io subfolders
+    base: isLibrary ? '/' : './',
     plugins: [
       vue(),
       vueDevTools(),
