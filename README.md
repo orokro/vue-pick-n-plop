@@ -1,6 +1,15 @@
 # 🫳 vue-pick-n-plop
 
-> A sophisticated, directive-driven drag-and-drop library for Vue 3. Designed for complex UI interactions, featuring world-space animations, robust multi-selection, integrated sorting with midpoint-threshold detection, and a global drag layer that defies `overflow: hidden`.
+> A directive-driven drag-and-drop library for Vue 3. 
+
+# Home page:
+[https://orokro.github.io/vue-pick-n-plop/](https://orokro.github.io/vue-pick-n-plop/)
+
+# Live Demo
+[https://orokro.github.io/vue-pick-n-plop/demo](https://orokro.github.io/vue-pick-n-plop/demo)
+
+# Github
+[https://github.com/orokro/vue-pick-n-plop](https://github.com/orokro/vue-pick-n-plop)
 
 ---
 
