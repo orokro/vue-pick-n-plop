@@ -170,10 +170,25 @@ const FilePileGhost = markRaw(defineComponent({
 		const animated = ref(false);
 
 		onMounted(() => {
-			// One rAF delay lets the browser paint the initial (world-space) positions
-			// before we trigger the transition to the pile positions.
+			// Two rAF delays guarantee the browser has painted a full frame with the
+			// initial (world-space) positions before triggering the CSS transition to
+			// the pile layout.
+			//
+			// When a drag starts, the drag layer transitions from display:none to
+			// visible in the same Vue render flush as this component's mount.  Because
+			// the layer was hidden, the browser hasn't laid out its children yet and
+			// may lazily defer their style computation to the next rendering step.  A
+			// single rAF can therefore fire *before* the initial transform has been
+			// committed as a "before-change" value, so the browser never sees a source
+			// state to transition from and jumps straight to the pile.
+			//
+			// The outer rAF waits for that first paint (with animated=false / world-
+			// space transforms).  The inner rAF then fires one frame later, after the
+			// initial state is guaranteed to be committed, and triggers the transition.
 			requestAnimationFrame(() => {
-				animated.value = true;
+				requestAnimationFrame(() => {
+					animated.value = true;
+				});
 			});
 		});
 
